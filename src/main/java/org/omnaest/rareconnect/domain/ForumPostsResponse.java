@@ -1,0 +1,79 @@
+/*
+
+	Copyright 2017 Danny Kunz
+
+	Licensed under the Apache License, Version 2.0 (the "License");
+	you may not use this file except in compliance with the License.
+	You may obtain a copy of the License at
+
+		http://www.apache.org/licenses/LICENSE-2.0
+
+	Unless required by applicable law or agreed to in writing, software
+	distributed under the License is distributed on an "AS IS" BASIS,
+	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	See the License for the specific language governing permissions and
+	limitations under the License.
+
+
+*/
+package org.omnaest.rareconnect.domain;
+
+import java.util.List;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+public class ForumPostsResponse
+{
+	@JsonProperty
+	private List<ForumPost> data;
+
+	@JsonProperty
+	private int limit;
+
+	@JsonProperty
+	private int skip;
+
+	@JsonProperty
+	private int total;
+
+	public List<ForumPost> getData()
+	{
+		return this.data;
+	}
+
+	public void setData(List<ForumPost> data)
+	{
+		this.data = data;
+	}
+
+	public int getLimit()
+	{
+		return this.limit;
+	}
+
+	public void setLimit(int limit)
+	{
+		this.limit = limit;
+	}
+
+	public int getSkip()
+	{
+		return this.skip;
+	}
+
+	public void setSkip(int skip)
+	{
+		this.skip = skip;
+	}
+
+	public int getTotal()
+	{
+		return this.total;
+	}
+
+	public void setTotal(int total)
+	{
+		this.total = total;
+	}
+
+}

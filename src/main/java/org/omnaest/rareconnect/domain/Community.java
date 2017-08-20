@@ -34,9 +34,21 @@ public class Community
 	private String	lang;
 	@JsonProperty
 	private String	description;
+	@JsonProperty("stream_id")
+	private String	streamId;
 
 	@JsonProperty
 	private List<Translation> translations;
+
+	public String getStreamId()
+	{
+		return this.streamId;
+	}
+
+	public void setStreamId(String streamId)
+	{
+		this.streamId = streamId;
+	}
 
 	public String getId()
 	{
