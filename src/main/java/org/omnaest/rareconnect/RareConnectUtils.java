@@ -18,17 +18,57 @@
 */
 package org.omnaest.rareconnect;
 
+import java.util.Optional;
 import java.util.stream.Stream;
 
+import org.apache.commons.lang3.StringUtils;
 import org.omnaest.rareconnect.accessor.CommunityAccessor;
+import org.omnaest.rareconnect.accessor.RareConnectAccessor;
+import org.omnaest.rareconnect.internal.CommunityAccessorImpl;
+import org.omnaest.rareconnect.rest.RareConnectRESTUtils;
+import org.omnaest.rareconnect.rest.RareConnectRESTUtils.Login;
 
 public class RareConnectUtils
 {
-	public static Stream<CommunityAccessor> getCommunities()
-	{
-		return RareConnectRESTUtils	.getCommunities()
-									.stream()
-									.map(community -> new CommunityAccessor(community));
-	}
+
+    public static RareConnectAccessor newInstance()
+    {
+        return new RareConnectAccessor()
+        {
+            private Optional<Login> login = Optional.empty();
+
+            @Override
+            public RareConnectAccessor login(String username, String password)
+            {
+                this.login = RareConnectRESTUtils.login(username, password);
+                return this;
+            }
+
+            @Override
+            public Optional<CommunityAccessor> findCommunityByNameContains(String communityNamePart)
+            {
+                return this.getAllCommunities()
+                           .filter(community -> StringUtils.contains(community.getName(), communityNamePart))
+                           .findFirst();
+            }
+
+            @Override
+            public Optional<CommunityAccessor> findCommunityByName(String communityName)
+            {
+                return this.getAllCommunities()
+                           .filter(community -> StringUtils.equals(community.getName(), communityName))
+                           .findFirst();
+            }
+
+            @Override
+            public Stream<CommunityAccessor> getAllCommunities()
+            {
+                return RareConnectRESTUtils.getCommunities(this.login)
+                                           .stream()
+                                           .map(community -> new CommunityAccessorImpl(community, () -> this.login));
+            }
+
+        };
+    }
 
 }

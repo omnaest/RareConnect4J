@@ -18,67 +18,20 @@
 */
 package org.omnaest.rareconnect.accessor;
 
-import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
-import org.omnaest.rareconnect.RareConnectRESTUtils;
-import org.omnaest.rareconnect.domain.Community;
 import org.omnaest.rareconnect.domain.CommunityStatistic;
 import org.omnaest.rareconnect.domain.ForumPost;
 
-public class CommunityAccessor
+public interface CommunityAccessor
 {
-	private Community community;
 
-	public CommunityAccessor(Community community)
-	{
-		super();
-		this.community = community;
-	}
+    public CommunityStatistic getStatistic();
 
-	public Community get()
-	{
-		return this.community;
-	}
+    public List<ForumPost> getForumPosts(int skip, int limit);
 
-	public CommunityStatistic getStatistic()
-	{
-		return RareConnectRESTUtils.getCommunityStatistic(this.community.getId());
-	}
+    public List<ForumPost> getAllForumPosts();
 
-	public List<ForumPost> getForumPosts(int skip, int limit)
-	{
-		int pageSize = 25;
-		int pageNumbers = (limit - 1) / pageSize;
-		return IntStream.rangeClosed(0, pageNumbers)
-						.map(pageNumber -> pageNumber * pageSize)
-						.parallel()
-						.mapToObj(start -> this.getForumPostsInternal(start + skip, pageSize))
-						.flatMap(posts -> posts.stream())
-						.limit(limit)
-						.collect(Collectors.toList());
-	}
-
-	private List<ForumPost> getForumPostsInternal(int skip, int limit)
-	{
-		return RareConnectRESTUtils.getFormPosts(this.community.getStreamId(), skip, limit);
-	}
-
-	public List<ForumPost> getAllForumPosts()
-	{
-		List<ForumPost> retlist = new ArrayList<>();
-		int skip = 0;
-		int limit = 25;
-		List<ForumPost> forumPosts = this.getForumPosts(skip, limit);
-		while (!forumPosts.isEmpty())
-		{
-			retlist.addAll(forumPosts);
-			skip += limit;
-			forumPosts = this.getForumPosts(skip, limit);
-		}
-		return retlist;
-	}
+    public String getName();
 
 }
