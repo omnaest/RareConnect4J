@@ -11,5 +11,12 @@ public interface RareConnectAccessor
 
     public Optional<CommunityAccessor> findCommunityByName(String communityName);
 
-    Stream<CommunityAccessor> getAllCommunities();
+    public Stream<CommunityAccessor> fetchAllCommunities();
+
+    public NotificationsAccessor fetchNewNotifications();
+
+    public NotificationsAccessor fetchNewNotificationsAndMarkAsSeen();
+
+    public NotificationsAccessor fetchAllNotifications();
+
 }

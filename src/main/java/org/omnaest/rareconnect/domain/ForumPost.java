@@ -22,58 +22,18 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class ForumPost
+public class ForumPost extends ForumPostComment
 {
-	@JsonProperty("author_id")
-	private String authorId;
+    @JsonProperty
+    private String title;
 
-	@JsonProperty
-	private String body;
+    public String getTitle()
+    {
+        return this.title;
+    }
 
-	@JsonProperty
-	private String title;
-
-	@JsonProperty("created_at")
-	private String createdAt;
-
-	public String getAuthorId()
-	{
-		return this.authorId;
-	}
-
-	public void setAuthorId(String authorId)
-	{
-		this.authorId = authorId;
-	}
-
-	public String getBody()
-	{
-		return this.body;
-	}
-
-	public void setBody(String body)
-	{
-		this.body = body;
-	}
-
-	public String getTitle()
-	{
-		return this.title;
-	}
-
-	public void setTitle(String title)
-	{
-		this.title = title;
-	}
-
-	public String getCreatedAt()
-	{
-		return this.createdAt;
-	}
-
-	public void setCreatedAt(String createdAt)
-	{
-		this.createdAt = createdAt;
-	}
-
+    public void setTitle(String title)
+    {
+        this.title = title;
+    }
 }

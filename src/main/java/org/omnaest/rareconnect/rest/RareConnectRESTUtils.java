@@ -20,16 +20,24 @@ package org.omnaest.rareconnect.rest;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import org.omnaest.rareconnect.domain.Community;
 import org.omnaest.rareconnect.domain.CommunityResponse;
 import org.omnaest.rareconnect.domain.CommunityStatistic;
 import org.omnaest.rareconnect.domain.ForumPost;
+import org.omnaest.rareconnect.domain.ForumPostComment;
+import org.omnaest.rareconnect.domain.ForumPostCommentsResponse;
 import org.omnaest.rareconnect.domain.ForumPostsResponse;
 import org.omnaest.rareconnect.domain.Notifications;
+import org.omnaest.rareconnect.domain.NotificationsReducedData;
 import org.omnaest.rareconnect.domain.StoriesResponse;
 import org.omnaest.rareconnect.domain.Story;
 import org.omnaest.rareconnect.domain.UserDetail;
+import org.omnaest.utils.MapUtils;
+import org.omnaest.utils.PredicateUtils;
 import org.omnaest.utils.rest.client.RestClient;
 import org.omnaest.utils.rest.client.RestClient.MediaType;
 import org.omnaest.utils.rest.client.RestClient.RequestBuilderWithUrl;
@@ -78,33 +86,77 @@ public class RareConnectRESTUtils
         LOG.debug("Request for " + url);
         return applyLoginTo(restClient.request()
                                       .toUrl(url),
-                            login).get(CommunityResponse.class)
-                                  .getData();
+                            login, false).get(CommunityResponse.class)
+                                         .getData();
     }
 
-    private static RequestBuilderWithUrl applyLoginTo(RequestBuilderWithUrl requestBuilder, Optional<Login> login)
+    private static RequestBuilderWithUrl applyLoginTo(RequestBuilderWithUrl requestBuilder, Optional<Login> login, boolean validate)
     {
         if (login.isPresent())
         {
             requestBuilder.withHeader("Authorization", "Bearer " + login.map(Login::getAccessToken)
                                                                         .orElse(""));
         }
+        else if (validate)
+        {
+            throw new IllegalStateException("To post a message you have to login first");
+        }
         return requestBuilder;
     }
 
-    public static Notifications getNotifications(String profileId, boolean isSeen)
+    public static Stream<Notifications> getNotifications(String profileId, boolean isSeen)
     {
         return getNotifications(profileId, isSeen, Optional.empty());
     }
 
-    public static Notifications getNotifications(String profileId, boolean isSeen, Optional<Login> login)
+    public static Stream<Notifications> getNotifications(String profileId, boolean isSeen, Optional<Login> login)
     {
-        RestClient restClient = createRestClient();
-        String url = "https://www.rareconnect.org/api/v1/notifications?profile_id=" + profileId + "&is_seen=" + isSeen + "&%24limit=0";
-        LOG.debug("Request for " + url);
-        return applyLoginTo(restClient.request()
-                                      .toUrl(url),
-                            login).get(Notifications.class);
+        AtomicBoolean hasContent = new AtomicBoolean(true);
+        return IntStream.range(0, 1000)
+                        .filter(i -> hasContent.get())
+                        .mapToObj(pageIndex ->
+                        {
+                            RestClient restClient = createRestClient();
+                            int limit = 25;
+                            int skip = pageIndex * limit;
+                            String url = "https://www.rareconnect.org/api/v1/notifications?profile_id=" + profileId + "&is_seen=" + isSeen + "&%24limit="
+                                    + limit + "&%24skip=" + skip;
+                            LOG.debug("Request for " + url);
+                            Notifications result = applyLoginTo(restClient.request()
+                                                                          .toUrl(url),
+                                                                login, false).get(Notifications.class);
+                            hasContent.set(Optional.ofNullable(result)
+                                                   .map(Notifications::getData)
+                                                   .map(data -> !data.isEmpty())
+                                                   .orElse(false));
+                            return result;
+                        })
+                        .filter(PredicateUtils.notNull());
+    }
+
+    public static Stream<NotificationsReducedData> getNotificationsAndMarkAsSeen(String profileId, Optional<Login> login)
+    {
+        AtomicBoolean hasContent = new AtomicBoolean(true);
+        return IntStream.range(0, 1000)
+                        .filter(i -> hasContent.get())
+                        .mapToObj(pageIndex ->
+                        {
+                            RestClient restClient = createRestClient();
+                            String url = "https://www.rareconnect.org/api/v1/notifications?profile_id=" + profileId + "&is_seen=false";
+                            LOG.debug("Request for " + url);
+                            NotificationsReducedData result = applyLoginTo(restClient.request()
+                                                                                     .toUrl(url),
+                                                                           login, false).patch(
+                                                                                               MapUtils.builder()
+                                                                                                       .put("is_seen", true)
+                                                                                                       .build(),
+                                                                                               NotificationsReducedData.class);
+                            hasContent.set(Optional.ofNullable(result)
+                                                   .map(data -> !data.isEmpty())
+                                                   .orElse(false));
+                            return result;
+                        })
+                        .filter(PredicateUtils.notNull());
     }
 
     public static CommunityStatistic getCommunityStatistic(String id)
@@ -145,8 +197,210 @@ public class RareConnectRESTUtils
         LOG.debug("Request for " + url);
         ForumPostsResponse response = applyLoginTo(restClient.request()
                                                              .toUrl(url),
-                                                   login).get(ForumPostsResponse.class);
+                                                   login, false).get(ForumPostsResponse.class);
         return response.getData();
+    }
+
+    public static List<ForumPostComment> getPostComments(String itemId, int skip, int limit, Optional<Login> login)
+    {
+        if (limit > 25)
+        {
+            throw new RuntimeException("Limit cannot be larger than 25");
+        }
+
+        String url = "https://www.rareconnect.org/api/v1/comments?item_id=" + itemId
+                + "&item_type=Post&%24sort%5Bcreated_at%5D=-1&%24populate%5B0%5D=author&%24populate%5B1%5D=editor&%24populate%5B2%5D=translations&%24populate%5B3%5D=parent"
+                + "&%24limit=" + limit + "&%24skip=" + skip;
+
+        LOG.debug("Request for " + url);
+        RestClient restClient = createRestClient();
+        ForumPostCommentsResponse response = applyLoginTo(restClient.request()
+                                                                    .toUrl(url),
+                                                          login, false).get(ForumPostCommentsResponse.class);
+        return response.getData();
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class PostRequest
+    {
+        @JsonProperty
+        private String title;
+
+        @JsonProperty
+        private String body;
+
+        @JsonProperty
+        private String visibility;
+
+        @JsonProperty("post_type")
+        private String postType;
+
+        @JsonProperty
+        private String streamId;
+
+        public PostRequest(String title, String body, String visibility, String postType, String streamId)
+        {
+            super();
+            this.title = title;
+            this.body = body;
+            this.visibility = visibility;
+            this.postType = postType;
+            this.streamId = streamId;
+        }
+
+        public String getTitle()
+        {
+            return this.title;
+        }
+
+        public String getBody()
+        {
+            return this.body;
+        }
+
+        public String getVisibility()
+        {
+            return this.visibility;
+        }
+
+        public String getPostType()
+        {
+            return this.postType;
+        }
+
+        public String getStreamId()
+        {
+            return this.streamId;
+        }
+
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class PostResponse
+    {
+        @JsonProperty
+        private String id;
+
+        @JsonProperty("stream_id")
+        private String streamId;
+
+        public String getId()
+        {
+            return this.id;
+        }
+
+        public String getStreamId()
+        {
+            return this.streamId;
+        }
+
+        @Override
+        public String toString()
+        {
+            return "PostResponse [id=" + this.id + ", streamId=" + this.streamId + "]";
+        }
+
+    }
+
+    public static Optional<String> postMessage(String streamId, String title, String message, Optional<Login> login)
+    {
+        String visibility = "users";
+        String postType = "forum";
+        PostRequest body = new PostRequest(title, message, visibility, postType, streamId);
+        RestClient restClient = createRestClient();
+        String url = "https://www.rareconnect.org/api/v1/posts?%24populate%5B0%5D=author&%24populate%5B1%5D=editor&%24populate%5B2%5D=translations&%24populate%5B3%5D=community";
+        LOG.debug("Request for " + url);
+        PostResponse response = applyLoginTo(restClient.request()
+                                                       .toUrl(url),
+                                             login, true).post(body, PostResponse.class);
+        return Optional.ofNullable(response)
+                       .map(PostResponse::getId);
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class CommentRequest
+    {
+        @JsonProperty("item_id")
+        private String itemId;
+
+        @JsonProperty("item_type")
+        private String itemType;
+
+        @JsonProperty("body")
+        private String body;
+
+        public CommentRequest(String itemId, String itemType, String body)
+        {
+            super();
+            this.itemId = itemId;
+            this.itemType = itemType;
+            this.body = body;
+        }
+
+        public String getItemId()
+        {
+            return this.itemId;
+        }
+
+        public String getItemType()
+        {
+            return this.itemType;
+        }
+
+        public String getBody()
+        {
+            return this.body;
+        }
+
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class CommentResponse
+    {
+        @JsonProperty
+        private String id;
+
+        @JsonProperty("comment_count")
+        private int commentCount;
+
+        @JsonProperty("item_id")
+        private String itemId;
+
+        public String getId()
+        {
+            return this.id;
+        }
+
+        public int getCommentCount()
+        {
+            return this.commentCount;
+        }
+
+        public String getItemId()
+        {
+            return this.itemId;
+        }
+
+        @Override
+        public String toString()
+        {
+            return "CommentResponse [id=" + this.id + ", commentCount=" + this.commentCount + ", itemId=" + this.itemId + "]";
+        }
+
+    }
+
+    public static Optional<String> comment(String itemId, String message, Optional<Login> login)
+    {
+        String itemType = "Post";
+        CommentRequest body = new CommentRequest(itemId, itemType, message);
+        RestClient restClient = createRestClient();
+        String url = "https://www.rareconnect.org/api/v1/comments?%24populate%5B0%5D=author&%24populate%5B1%5D=editor&%24populate%5B2%5D=translations";
+        LOG.debug("Request for " + url);
+        CommentResponse response = applyLoginTo(restClient.request()
+                                                          .toUrl(url),
+                                                login, true).post(body, CommentResponse.class);
+        return Optional.ofNullable(response)
+                       .map(CommentResponse::getId);
     }
 
     private static RestClient createRestClient()

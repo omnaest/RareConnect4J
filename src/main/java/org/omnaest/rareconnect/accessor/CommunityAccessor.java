@@ -19,19 +19,27 @@
 package org.omnaest.rareconnect.accessor;
 
 import java.util.List;
+import java.util.Optional;
+import java.util.stream.Stream;
 
 import org.omnaest.rareconnect.domain.CommunityStatistic;
-import org.omnaest.rareconnect.domain.ForumPost;
 
 public interface CommunityAccessor
 {
-
     public CommunityStatistic getStatistic();
 
-    public List<ForumPost> getForumPosts(int skip, int limit);
+    public List<ForumPostAccessor> getForumPosts(int skip, int limit);
 
-    public List<ForumPost> getAllForumPosts();
+    public Stream<ForumPostAccessor> getAllForumPosts();
 
     public String getName();
+
+    public CommunityAccessor postMessage(String title, String message);
+
+    public Stream<ForumPostAccessor> findPostsByTitleContaining(String titleToken);
+
+    public Optional<ForumPostAccessor> findForumPostByPostId(String postId);
+
+    public String getStreamId();
 
 }
